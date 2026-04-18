@@ -1,13 +1,66 @@
 --[[
     Script: Dark Aura BR 🇧🇷 - Painel de Visualização
     Autor: Desenvolvedor
-    Versão: 1.0
-    ⚠️ KEY CORRETA: 5609
-    ⚠️ Só carrega o script se a key estiver correta!
+    Versão: 2.0
+    KEY CORRETA: 5609
+    ⚠️ SÓ CARREGA SE A KEY FOR 5609!
 --]]
 
--- Carregar a biblioteca Rayfield
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Tentar carregar a biblioteca Rayfield com diferentes URLs
+local Rayfield = nil
+local RayfieldLoaded = false
+
+local RayfieldURLs = {
+    'https://sirius.menu/rayfield',
+    'https://raw.githubusercontent.com/shlexware/Rayfield/main/source.lua',
+    'https://pastebin.com/raw/rayfield_library'
+}
+
+for _, url in ipairs(RayfieldURLs) do
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet(url))()
+    end)
+    
+    if success and result then
+        Rayfield = result
+        RayfieldLoaded = true
+        break
+    end
+end
+
+if not RayfieldLoaded then
+    -- Se Rayfield não carregar, criar uma interface simples alternativa
+    warn("[Dark Aura] Rayfield não carregou, usando interface alternativa")
+    
+    -- Criar uma ScreenGui simples para mensagem
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "DarkAuraError"
+    sg.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 200)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -100)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 0
+    frame.Parent = sg
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+    
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1, 0, 1, 0)
+    text.BackgroundTransparency = 1
+    text.Text = "Dark Aura BR 🇧🇷\n\nErro: Não foi possível carregar a biblioteca Rayfield.\nVerifique sua conexão e tente novamente."
+    text.TextColor3 = Color3.fromRGB(255, 255, 255)
+    text.TextSize = 14
+    text.TextWrapped = true
+    text.Font = Enum.Font.Gotham
+    text.Parent = frame
+    
+    return
+end
 
 -- Serviços necessários
 local Players = game:GetService("Players")
@@ -20,9 +73,9 @@ local Camera = workspace.CurrentCamera
 -- ============================================
 
 local IsAuthenticated = false
-local CORRECT_KEY = "5609"  -- ✅ KEY CORRETA
+local CORRECT_KEY = "5609"
 
--- Variáveis de configuração (só serão usadas se autenticado)
+-- Variáveis de configuração
 local Settings = {
     FOVSize = 120,
     ShowFOV = true,
@@ -30,130 +83,120 @@ local Settings = {
     DirectionLines = false
 }
 
--- Variáveis do sistema (só serão criadas se autenticado)
+-- Variáveis do sistema
 local FOVCircle = nil
 local Highlights = {}
 local DirectionLinesObj = {}
-local MainWindow = nil  -- Será nil se não autenticado
+local MainWindow = nil
+local AuthWindow = nil
 
 -- ============================================
--- 2. JANELA DE AUTENTICAÇÃO
+-- 2. CRIAR JANELA DE AUTENTICAÇÃO
 -- ============================================
 
--- Criar janela de autenticação
-local AuthWindow = Rayfield:CreateWindow({
-    Name = "Dark Aura BR 🇧🇷 - Autenticação",
-    Icon = 0,
-    LoadingTitle = "Verificando Acesso...",
-    LoadingSubtitle = "Insira sua key de acesso",
-    ConfigurationSaving = {
-        Enabled = false
-    }
-})
-
--- Aba de autenticação
-local AuthTab = AuthWindow:CreateTab("🔐 Autenticação", nil)
-local AuthSection = AuthTab:CreateSection("Login")
-
--- Informação da Key
-AuthTab:CreateParagraph({
-    Name = "KeyInfo",
-    Content = "🔑 KEY CORRETA: 5609\n\n⚠️ ATENÇÃO: Se a key estiver errada, o sistema NÃO será carregado!\n\nDigite a key abaixo para acessar o sistema."
-})
-
--- Campo de texto para Key
-local KeyInput = AuthTab:CreateInput({
-    Name = "Chave de Acesso",
-    PlaceholderText = "Digite sua key aqui...",
-    RemoveTextAfterFocusLoss = false,
-    CurrentValue = "",
-    Flag = "KeyInput"
-})
-
--- Variável para controlar se já autenticou
-local alreadyAuthenticated = false
-
--- Botão confirmar
-local ConfirmButton = AuthTab:CreateButton({
-    Name = "🔓 Confirmar Acesso",
-    Callback = function()
-        -- Impedir múltiplas autenticações
-        if alreadyAuthenticated then
-            Rayfield:Notify({
-                Title = "⚠️ ATENÇÃO",
-                Content = "Você já está autenticado!",
-                Duration = 2
-            })
-            return
+local function CreateAuthWindow()
+    AuthWindow = Rayfield:CreateWindow({
+        Name = "Dark Aura BR 🇧🇷 - Autenticação",
+        Icon = 0,
+        LoadingTitle = "Verificando Acesso...",
+        LoadingSubtitle = "Insira sua key de acesso",
+        ConfigurationSaving = {
+            Enabled = false
+        }
+    })
+    
+    local AuthTab = AuthWindow:CreateTab("🔐 Autenticação", nil)
+    AuthTab:CreateSection("Login")
+    
+    -- Informação da Key
+    AuthTab:CreateParagraph({
+        Name = "KeyInfo",
+        Content = "🔑 KEY CORRETA: 5609\n\n⚠️ ATENÇÃO: Se a key estiver errada, o sistema NÃO será carregado!\n\nDigite a key abaixo para acessar o sistema."
+    })
+    
+    -- Campo de texto para Key
+    local KeyInput = AuthTab:CreateInput({
+        Name = "Chave de Acesso",
+        PlaceholderText = "Digite sua key aqui...",
+        RemoveTextAfterFocusLoss = false,
+        CurrentValue = "",
+        Flag = "KeyInput"
+    })
+    
+    -- Variável para controlar se já autenticou
+    local alreadyAuthenticated = false
+    
+    -- Botão confirmar
+    AuthTab:CreateButton({
+        Name = "🔓 Confirmar Acesso",
+        Callback = function()
+            -- Impedir múltiplas autenticações
+            if alreadyAuthenticated then
+                Rayfield:Notify({
+                    Title = "⚠️ ATENÇÃO",
+                    Content = "Você já está autenticado!",
+                    Duration = 2
+                })
+                return
+            end
+            
+            local EnteredKey = KeyInput.CurrentValue
+            
+            -- Verificar se a key está correta (5609)
+            if EnteredKey == CORRECT_KEY then
+                -- ✅ AUTENTICAÇÃO BEM-SUCEDIDA
+                IsAuthenticated = true
+                alreadyAuthenticated = true
+                
+                Rayfield:Notify({
+                    Title = "✅ ACESSO LIBERADO!",
+                    Content = "Key correta! Carregando sistema Dark Aura BR...",
+                    Duration = 2
+                })
+                
+                -- Pequeno delay para a notificação aparecer
+                task.wait(1)
+                
+                -- Fechar janela de autenticação
+                if AuthWindow then
+                    AuthWindow:Destroy()
+                end
+                
+                -- CARREGAR INTERFACE PRINCIPAL
+                LoadMainInterface()
+                
+            else
+                -- ❌ KEY INVÁLIDA
+                Rayfield:Notify({
+                    Title = "❌ ACESSO NEGADO!",
+                    Content = "Key inválida! A key correta é: 5609",
+                    Duration = 4
+                })
+                
+                -- Limpar campo
+                KeyInput:SetValue("")
+                
+                print("[Dark Aura] ❌ Key inválida! Sistema NÃO será carregado.")
+                print("[Dark Aura] Key digitada:", EnteredKey)
+            end
         end
-        
-        local EnteredKey = KeyInput.CurrentValue
-        
-        -- Verificar se a key está correta (5609)
-        if EnteredKey == CORRECT_KEY then
-            -- ✅ AUTENTICAÇÃO BEM-SUCEDIDA
-            IsAuthenticated = true
-            alreadyAuthenticated = true
-            
+    })
+    
+    -- Botão para mostrar a key correta
+    AuthTab:CreateButton({
+        Name = "🔑 Esqueci a Key",
+        Callback = function()
             Rayfield:Notify({
-                Title = "✅ ACESSO LIBERADO!",
-                Content = "Key correta! Carregando sistema Dark Aura BR...",
-                Duration = 2
+                Title = "🔑 KEY CORRETA",
+                Content = "A key de acesso é: 5609",
+                Duration = 3
             })
-            
-            -- Pequeno delay para a notificação aparecer
-            task.wait(1)
-            
-            -- Fechar janela de autenticação
-            AuthWindow:Destroy()
-            
-            -- CARREGAR INTERFACE PRINCIPAL (SÓ AQUI)
-            LoadMainInterface()
-            
-        else
-            -- ❌ KEY INVÁLIDA - SCRIPT NÃO CARREGA
-            Rayfield:Notify({
-                Title = "❌ ACESSO NEGADO!",
-                Content = "Key inválida! O sistema NÃO será carregado. Key correta: 5609",
-                Duration = 5,
-                Actions = {
-                    Ignore = {
-                        Name = "Tentar Novamente",
-                        Callback = function()
-                            KeyInput:SetValue("")
-                        end
-                    }
-                }
-            })
-            
-            -- Limpar campo
-            KeyInput:SetValue("")
-            
-            -- IMPORTANTE: NÃO carregar a interface principal
-            print("[Dark Aura] ❌ Key inválida! Sistema NÃO será carregado.")
-            print("[Dark Aura] Key digitada:", EnteredKey)
-            print("[Dark Aura] Key correta é: 5609")
-            
-            -- Opcional: Destruir a janela após algumas tentativas inválidas?
-            -- Mantém a janela aberta para nova tentativa
         end
-    end
-})
-
--- Botão para mostrar a key correta (útil para lembrar)
-AuthTab:CreateButton({
-    Name = "🔑 Esqueci a Key",
-    Callback = function()
-        Rayfield:Notify({
-            Title = "🔑 KEY CORRETA",
-            Content = "A key de acesso é: 5609\nDigite exatamente este número.",
-            Duration = 4
-        })
-    end
-})
+    })
+end
 
 -- ============================================
--- 3. FUNÇÕES DO SISTEMA (SÓ SERÃO USADAS SE AUTENTICADO)
+-- 3. FUNÇÕES DO SISTEMA DE VISUALIZAÇÃO
 -- ============================================
 
 -- Função para verificar se um jogador é válido e visível
@@ -222,15 +265,6 @@ local function CreateFOVCircle()
     UICorner.CornerRadius = UDim.new(1, 0)
     UICorner.Parent = CircleFrame
     
-    local UIGradient = Instance.new("UIGradient")
-    UIGradient.Rotation = 45
-    UIGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(138, 43, 226)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(75, 0, 130)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(138, 43, 226))
-    })
-    UIGradient.Parent = UIStroke
-    
     return CircleFrame
 end
 
@@ -278,14 +312,6 @@ local function ApplyHighlight(Player)
     Highlight.Parent = Character
     
     Highlights[Player.Name] = Highlight
-end
-
-local function RemoveHighlight(Player)
-    local Highlight = Highlights[Player.Name]
-    if Highlight then
-        Highlight:Destroy()
-        Highlights[Player.Name] = nil
-    end
 end
 
 local function UpdateHighlights()
@@ -398,7 +424,7 @@ local function UpdateDirectionLines()
 end
 
 -- ============================================
--- 7. INTERFACE PRINCIPAL (SÓ CARREGA SE KEY CORRETA)
+-- 7. INTERFACE PRINCIPAL
 -- ============================================
 
 local function LoadMainInterface()
@@ -421,7 +447,6 @@ local function LoadMainInterface()
     
     -- Aba: Visual FOV
     local FOVTab = MainWindow:CreateTab("🎯 Visual FOV", nil)
-    
     FOVTab:CreateSection("Configuração do Círculo FOV")
     
     FOVTab:CreateSlider({
@@ -449,7 +474,6 @@ local function LoadMainInterface()
     
     -- Aba: Visual de Players
     local VisualTab = MainWindow:CreateTab("👁️ Visual Players", nil)
-    
     VisualTab:CreateSection("Destaque de Jogadores")
     
     VisualTab:CreateToggle({
@@ -462,14 +486,8 @@ local function LoadMainInterface()
         end
     })
     
-    VisualTab:CreateParagraph({
-        Name = "HighlightInfo",
-        Content = "✨ O highlight aplica um contorno roxo nos jogadores visíveis."
-    })
-    
     -- Aba: Linhas de Debug
     local DebugTab = MainWindow:CreateTab("📏 Linhas Debug", nil)
-    
     DebugTab:CreateSection("Linhas de Direção")
     
     DebugTab:CreateToggle({
@@ -489,39 +507,23 @@ local function LoadMainInterface()
         end
     })
     
-    DebugTab:CreateParagraph({
-        Name = "LinesInfo",
-        Content = "🔍 As linhas mostram a direção exata de cada jogador visível."
-    })
-    
     -- Aba: Informações
     local InfoTab = MainWindow:CreateTab("ℹ️ Informações", nil)
-    
     InfoTab:CreateSection("Sobre o Dark Aura BR")
     
     InfoTab:CreateParagraph({
         Name = "Credits",
-        Content = "Dark Aura BR 🇧🇷\nVersão: 1.0\n\n✅ SISTEMA AUTENTICADO COM SUCESSO!\nKey utilizada: 5609\n\nDesenvolvido para comunidade brasileira"
+        Content = "Dark Aura BR 🇧🇷\nVersão: 2.0\n\n✅ SISTEMA AUTENTICADO COM SUCESSO!\n\nDesenvolvido para comunidade brasileira"
     })
     
     -- Inicializar o círculo FOV
     FOVCircle = CreateFOVCircle()
     
-    -- ============================================
-    -- 8. LOOP PRINCIPAL (SÓ EXECUTA SE AUTENTICADO)
-    -- ============================================
-    
+    -- Loop principal
     RunService.RenderStepped:Connect(function()
         if IsAuthenticated then
             if Settings.PlayerHighlight then
                 UpdateHighlights()
-            elseif not Settings.PlayerHighlight and next(Highlights) then
-                for _, Highlight in pairs(Highlights) do
-                    if Highlight then
-                        Highlight:Destroy()
-                    end
-                end
-                Highlights = {}
             end
             
             if Settings.DirectionLines then
@@ -530,39 +532,31 @@ local function LoadMainInterface()
         end
     end)
     
-    LocalPlayer.CharacterAdded:Connect(function()
-        if IsAuthenticated then
-            if Settings.ShowFOV then
-                if FOVCircle then
-                    local parent = FOVCircle.Parent
-                    if parent then
-                        parent:Destroy()
-                    end
-                end
-                FOVCircle = CreateFOVCircle()
-            end
-            
-            for _, Line in pairs(DirectionLinesObj) do
-                if Line then
-                    Line:Destroy()
-                end
-            end
-            DirectionLinesObj = {}
-        end
-    end)
-    
     -- Notificação de boas-vindas
     Rayfield:Notify({
         Title = "✅ Dark Aura BR 🇧🇷",
-        Content = "Sistema carregado com sucesso! Ajuste as configurações conforme preferir.",
-        Duration = 4
+        Content = "Sistema carregado com sucesso! Key: 5609",
+        Duration = 3
     })
     
     print("[Dark Aura BR] ✅ SISTEMA CARREGADO COM SUCESSO!")
-    print("[Dark Aura BR] Key utilizada: 5609")
 end
 
--- Inicialização
-print("[Dark Aura BR] 🔐 Sistema de autenticação iniciado.")
-print("[Dark Aura BR] ⚠️ Aguardando key correta: 5609")
-print("[Dark Aura BR] ⚠️ Se a key estiver errada, o sistema NÃO será carregado!")
+-- ============================================
+-- 8. INICIAR SISTEMA
+-- ============================================
+
+-- Aguardar o jogador carregar
+local function Start()
+    -- Aguardar o PlayerGui
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Criar janela de autenticação
+    CreateAuthWindow()
+    
+    print("[Dark Aura BR] 🔐 Sistema de autenticação iniciado.")
+    print("[Dark Aura BR] ⚠️ Digite a key: 5609")
+end
+
+-- Iniciar o sistema
+pcall(Start)
