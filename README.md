@@ -2,7 +2,8 @@
     Script: Dark Aura BR 🇧🇷 - Painel de Visualização
     Autor: Desenvolvedor
     Versão: 1.0
-    Requer: Rayfield UI Library
+    ⚠️ KEY CORRETA: 5609
+    ⚠️ Só carrega o script se a key estiver correta!
 --]]
 
 -- Carregar a biblioteca Rayfield
@@ -19,8 +20,9 @@ local Camera = workspace.CurrentCamera
 -- ============================================
 
 local IsAuthenticated = false
+local CORRECT_KEY = "5609"  -- ✅ KEY CORRETA
 
--- Variáveis de configuração
+-- Variáveis de configuração (só serão usadas se autenticado)
 local Settings = {
     FOVSize = 120,
     ShowFOV = true,
@@ -28,11 +30,15 @@ local Settings = {
     DirectionLines = false
 }
 
--- Variáveis do sistema
+-- Variáveis do sistema (só serão criadas se autenticado)
 local FOVCircle = nil
-local Highlights = {}  -- Armazenar highlights dos jogadores
-local DirectionLinesObj = {}  -- Armazenar linhas de direção
-local LineConnections = {}  -- Armazenar conexões para atualização
+local Highlights = {}
+local DirectionLinesObj = {}
+local MainWindow = nil  -- Será nil se não autenticado
+
+-- ============================================
+-- 2. JANELA DE AUTENTICAÇÃO
+-- ============================================
 
 -- Criar janela de autenticação
 local AuthWindow = Rayfield:CreateWindow({
@@ -49,6 +55,12 @@ local AuthWindow = Rayfield:CreateWindow({
 local AuthTab = AuthWindow:CreateTab("🔐 Autenticação", nil)
 local AuthSection = AuthTab:CreateSection("Login")
 
+-- Informação da Key
+AuthTab:CreateParagraph({
+    Name = "KeyInfo",
+    Content = "🔑 KEY CORRETA: 5609\n\n⚠️ ATENÇÃO: Se a key estiver errada, o sistema NÃO será carregado!\n\nDigite a key abaixo para acessar o sistema."
+})
+
 -- Campo de texto para Key
 local KeyInput = AuthTab:CreateInput({
     Name = "Chave de Acesso",
@@ -58,35 +70,55 @@ local KeyInput = AuthTab:CreateInput({
     Flag = "KeyInput"
 })
 
+-- Variável para controlar se já autenticou
+local alreadyAuthenticated = false
+
 -- Botão confirmar
 local ConfirmButton = AuthTab:CreateButton({
     Name = "🔓 Confirmar Acesso",
     Callback = function()
+        -- Impedir múltiplas autenticações
+        if alreadyAuthenticated then
+            Rayfield:Notify({
+                Title = "⚠️ ATENÇÃO",
+                Content = "Você já está autenticado!",
+                Duration = 2
+            })
+            return
+        end
+        
         local EnteredKey = KeyInput.CurrentValue
         
-        if EnteredKey == "5609" then
-            -- Autenticação bem-sucedida
+        -- Verificar se a key está correta (5609)
+        if EnteredKey == CORRECT_KEY then
+            -- ✅ AUTENTICAÇÃO BEM-SUCEDIDA
             IsAuthenticated = true
+            alreadyAuthenticated = true
             
             Rayfield:Notify({
-                Title = "✅ Acesso Liberado!",
-                Content = "Bem-vindo ao Dark Aura BR 🇧🇷",
+                Title = "✅ ACESSO LIBERADO!",
+                Content = "Key correta! Carregando sistema Dark Aura BR...",
                 Duration = 2
             })
             
+            -- Pequeno delay para a notificação aparecer
             task.wait(1)
-            AuthWindow:Destroy()  -- Fechar janela de autenticação
-            LoadMainInterface()   -- Carregar interface principal
+            
+            -- Fechar janela de autenticação
+            AuthWindow:Destroy()
+            
+            -- CARREGAR INTERFACE PRINCIPAL (SÓ AQUI)
+            LoadMainInterface()
             
         else
-            -- Key inválida
+            -- ❌ KEY INVÁLIDA - SCRIPT NÃO CARREGA
             Rayfield:Notify({
-                Title = "❌ Acesso Negado!",
-                Content = "Key inválida. Verifique e tente novamente.",
-                Duration = 3,
+                Title = "❌ ACESSO NEGADO!",
+                Content = "Key inválida! O sistema NÃO será carregado. Key correta: 5609",
+                Duration = 5,
                 Actions = {
                     Ignore = {
-                        Name = "Ok",
+                        Name = "Tentar Novamente",
                         Callback = function()
                             KeyInput:SetValue("")
                         end
@@ -94,20 +126,34 @@ local ConfirmButton = AuthTab:CreateButton({
                 }
             })
             
+            -- Limpar campo
             KeyInput:SetValue("")
-            print("[Dark Aura] Tentativa de acesso com key inválida:", EnteredKey)
+            
+            -- IMPORTANTE: NÃO carregar a interface principal
+            print("[Dark Aura] ❌ Key inválida! Sistema NÃO será carregado.")
+            print("[Dark Aura] Key digitada:", EnteredKey)
+            print("[Dark Aura] Key correta é: 5609")
+            
+            -- Opcional: Destruir a janela após algumas tentativas inválidas?
+            -- Mantém a janela aberta para nova tentativa
         end
     end
 })
 
--- Informação adicional
-AuthTab:CreateParagraph({
-    Name = "Info",
-    Content = "🔐 Sistema de segurança Dark Aura BR\n\nEntre em contato com o suporte para obter sua key de acesso."
+-- Botão para mostrar a key correta (útil para lembrar)
+AuthTab:CreateButton({
+    Name = "🔑 Esqueci a Key",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "🔑 KEY CORRETA",
+            Content = "A key de acesso é: 5609\nDigite exatamente este número.",
+            Duration = 4
+        })
+    end
 })
 
 -- ============================================
--- 2. FUNÇÕES DO SISTEMA DE VISUALIZAÇÃO
+-- 3. FUNÇÕES DO SISTEMA (SÓ SERÃO USADAS SE AUTENTICADO)
 -- ============================================
 
 -- Função para verificar se um jogador é válido e visível
@@ -121,7 +167,6 @@ local function IsValidPlayer(Player)
     local Humanoid = Character:FindFirstChild("Humanoid")
     if not Humanoid or Humanoid.Health <= 0 then return false end
     
-    -- Verificar se está visível na câmera
     local Head = Character:FindFirstChild("Head")
     if Head then
         local ScreenPos, OnScreen = Camera:WorldToViewportPoint(Head.Position)
@@ -134,12 +179,10 @@ local function IsValidPlayer(Player)
 end
 
 -- ============================================
--- 3. SISTEMA DE FOV CIRCLE
+-- 4. SISTEMA DE FOV CIRCLE
 -- ============================================
 
--- Criar o círculo FOV na tela
 local function CreateFOVCircle()
-    -- Verificar se PlayerGui existe
     local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if not PlayerGui then
         PlayerGui = Instance.new("ScreenGui")
@@ -147,7 +190,6 @@ local function CreateFOVCircle()
         PlayerGui.Parent = LocalPlayer
     end
     
-    -- Remover círculo antigo se existir
     local OldCircle = PlayerGui:FindFirstChild("FOVCircleGUI")
     if OldCircle then
         OldCircle:Destroy()
@@ -169,10 +211,9 @@ local function CreateFOVCircle()
     CircleFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     CircleFrame.Parent = ScreenGui
     
-    -- Estilo do círculo
     local UIStroke = Instance.new("UIStroke")
     UIStroke.Thickness = 3
-    UIStroke.Color = Color3.fromRGB(138, 43, 226)  -- Roxo Dark Aura
+    UIStroke.Color = Color3.fromRGB(138, 43, 226)
     UIStroke.Transparency = 0.3
     UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     UIStroke.Parent = CircleFrame
@@ -181,7 +222,6 @@ local function CreateFOVCircle()
     UICorner.CornerRadius = UDim.new(1, 0)
     UICorner.Parent = CircleFrame
     
-    -- Efeito de glow
     local UIGradient = Instance.new("UIGradient")
     UIGradient.Rotation = 45
     UIGradient.Color = ColorSequence.new({
@@ -194,14 +234,12 @@ local function CreateFOVCircle()
     return CircleFrame
 end
 
--- Atualizar tamanho do FOV Circle
 local function UpdateFOVCircle()
     if FOVCircle then
         FOVCircle.Size = UDim2.new(0, Settings.FOVSize * 2, 0, Settings.FOVSize * 2)
     end
 end
 
--- Mostrar/Esconder FOV Circle
 local function ToggleFOVCircle()
     if FOVCircle then
         local parent = FOVCircle.Parent
@@ -217,10 +255,9 @@ local function ToggleFOVCircle()
 end
 
 -- ============================================
--- 4. SISTEMA DE HIGHLIGHT
+-- 5. SISTEMA DE HIGHLIGHT
 -- ============================================
 
--- Aplicar highlight em um jogador
 local function ApplyHighlight(Player)
     if not Settings.PlayerHighlight then return end
     if not IsValidPlayer(Player) then return end
@@ -228,14 +265,12 @@ local function ApplyHighlight(Player)
     local Character = Player.Character
     if not Character then return end
     
-    -- Verificar se já tem highlight
     local ExistingHighlight = Highlights[Player.Name]
     if ExistingHighlight then return end
     
-    -- Criar novo highlight
     local Highlight = Instance.new("Highlight")
     Highlight.Name = "DarkAuraHighlight"
-    Highlight.FillColor = Color3.fromRGB(138, 43, 226)  -- Roxo
+    Highlight.FillColor = Color3.fromRGB(138, 43, 226)
     Highlight.FillTransparency = 0.5
     Highlight.OutlineColor = Color3.fromRGB(255, 0, 255)
     Highlight.OutlineTransparency = 0.3
@@ -245,7 +280,6 @@ local function ApplyHighlight(Player)
     Highlights[Player.Name] = Highlight
 end
 
--- Remover highlight de um jogador
 local function RemoveHighlight(Player)
     local Highlight = Highlights[Player.Name]
     if Highlight then
@@ -254,10 +288,8 @@ local function RemoveHighlight(Player)
     end
 end
 
--- Atualizar todos os highlights
 local function UpdateHighlights()
     if not Settings.PlayerHighlight then
-        -- Remover todos os highlights
         for PlayerName, Highlight in pairs(Highlights) do
             if Highlight then
                 Highlight:Destroy()
@@ -267,7 +299,6 @@ local function UpdateHighlights()
         return
     end
     
-    -- Remover highlights de jogadores inválidos
     for PlayerName, Highlight in pairs(Highlights) do
         local Player = Players:FindFirstChild(PlayerName)
         if not Player or not IsValidPlayer(Player) then
@@ -278,7 +309,6 @@ local function UpdateHighlights()
         end
     end
     
-    -- Adicionar highlights para jogadores válidos
     for _, Player in ipairs(Players:GetPlayers()) do
         if IsValidPlayer(Player) then
             ApplyHighlight(Player)
@@ -287,10 +317,9 @@ local function UpdateHighlights()
 end
 
 -- ============================================
--- 5. SISTEMA DE LINHAS DE DIREÇÃO
+-- 6. SISTEMA DE LINHAS DE DIREÇÃO
 -- ============================================
 
--- Criar linha de direção para um jogador
 local function CreateDirectionLine(Player)
     if not Settings.DirectionLines then return nil end
     if not IsValidPlayer(Player) then return nil end
@@ -305,13 +334,12 @@ local function CreateDirectionLine(Player)
     
     if not HumanoidRootPart or not LocalRootPart then return nil end
     
-    -- Criar linha 3D
     local Line = Instance.new("LineHandleAdornment")
     Line.Name = "DirectionLine_" .. Player.Name
     Line.Adornee = LocalRootPart
-    Line.PointA = Vector3.new(0, 1, 0)  -- Do centro do jogador local
-    Line.PointB = HumanoidRootPart.Position - LocalRootPart.Position  -- Até o outro jogador
-    Line.Color3 = Color3.fromRGB(0, 255, 255)  -- Ciano
+    Line.PointA = Vector3.new(0, 1, 0)
+    Line.PointB = HumanoidRootPart.Position - LocalRootPart.Position
+    Line.Color3 = Color3.fromRGB(0, 255, 255)
     Line.Thickness = 2
     Line.Transparency = 0.5
     Line.ZIndex = 0
@@ -321,10 +349,8 @@ local function CreateDirectionLine(Player)
     return Line
 end
 
--- Atualizar posição das linhas
 local function UpdateDirectionLines()
     if not Settings.DirectionLines then
-        -- Remover todas as linhas
         for PlayerName, Line in pairs(DirectionLinesObj) do
             if Line then
                 Line:Destroy()
@@ -340,7 +366,6 @@ local function UpdateDirectionLines()
     local LocalRootPart = LocalCharacter:FindFirstChild("HumanoidRootPart")
     if not LocalRootPart then return end
     
-    -- Remover linhas de jogadores inválidos
     for PlayerName, Line in pairs(DirectionLinesObj) do
         local Player = Players:FindFirstChild(PlayerName)
         if not Player or not IsValidPlayer(Player) then
@@ -351,14 +376,12 @@ local function UpdateDirectionLines()
         end
     end
     
-    -- Atualizar ou criar linhas para jogadores válidos
     for _, Player in ipairs(Players:GetPlayers()) do
         if IsValidPlayer(Player) then
             local Character = Player.Character
             if Character then
                 local TargetRootPart = Character:FindFirstChild("HumanoidRootPart")
                 if TargetRootPart then
-                    -- Atualizar linha existente ou criar nova
                     local Line = DirectionLinesObj[Player.Name]
                     if not Line then
                         Line = CreateDirectionLine(Player)
@@ -366,7 +389,6 @@ local function UpdateDirectionLines()
                             DirectionLinesObj[Player.Name] = Line
                         end
                     elseif Line and Line:IsA("LineHandleAdornment") then
-                        -- Atualizar posição da linha
                         Line.PointB = TargetRootPart.Position - LocalRootPart.Position
                     end
                 end
@@ -376,12 +398,12 @@ local function UpdateDirectionLines()
 end
 
 -- ============================================
--- 6. INTERFACE PRINCIPAL
+-- 7. INTERFACE PRINCIPAL (SÓ CARREGA SE KEY CORRETA)
 -- ============================================
 
 local function LoadMainInterface()
     -- Criar janela principal
-    local MainWindow = Rayfield:CreateWindow({
+    MainWindow = Rayfield:CreateWindow({
         Name = "Dark Aura BR 🇧🇷",
         Icon = 0,
         LoadingTitle = "Carregando Dark Aura...",
@@ -402,7 +424,6 @@ local function LoadMainInterface()
     
     FOVTab:CreateSection("Configuração do Círculo FOV")
     
-    -- Slider para tamanho do FOV
     FOVTab:CreateSlider({
         Name = "Tamanho do Círculo FOV",
         Range = {120, 1000},
@@ -416,7 +437,6 @@ local function LoadMainInterface()
         end
     })
     
-    -- Toggle para mostrar/esconder círculo
     FOVTab:CreateToggle({
         Name = "Mostrar Círculo FOV",
         CurrentValue = true,
@@ -432,7 +452,6 @@ local function LoadMainInterface()
     
     VisualTab:CreateSection("Destaque de Jogadores")
     
-    -- Toggle para Highlight
     VisualTab:CreateToggle({
         Name = "Highlight em Jogadores",
         CurrentValue = false,
@@ -443,10 +462,9 @@ local function LoadMainInterface()
         end
     })
     
-    -- Informação sobre o Highlight
     VisualTab:CreateParagraph({
         Name = "HighlightInfo",
-        Content = "✨ O highlight aplica um contorno roxo nos jogadores visíveis.\nEfeito profissional e discreto."
+        Content = "✨ O highlight aplica um contorno roxo nos jogadores visíveis."
     })
     
     -- Aba: Linhas de Debug
@@ -454,7 +472,6 @@ local function LoadMainInterface()
     
     DebugTab:CreateSection("Linhas de Direção")
     
-    -- Toggle para linhas de direção
     DebugTab:CreateToggle({
         Name = "Linhas de Direção",
         CurrentValue = false,
@@ -462,7 +479,6 @@ local function LoadMainInterface()
         Callback = function(Value)
             Settings.DirectionLines = Value
             if not Value then
-                -- Limpar linhas ao desativar
                 for _, Line in pairs(DirectionLinesObj) do
                     if Line then
                         Line:Destroy()
@@ -475,7 +491,7 @@ local function LoadMainInterface()
     
     DebugTab:CreateParagraph({
         Name = "LinesInfo",
-        Content = "🔍 As linhas mostram a direção exata de cada jogador visível.\nÚtil para debug e análise de campo de visão."
+        Content = "🔍 As linhas mostram a direção exata de cada jogador visível."
     })
     
     -- Aba: Informações
@@ -485,24 +501,21 @@ local function LoadMainInterface()
     
     InfoTab:CreateParagraph({
         Name = "Credits",
-        Content = "Dark Aura BR 🇧🇷\nVersão: 1.0\n\nDesenvolvido para comunidade brasileira\nSistema de visualização avançada para Roblox\n\n✨ Características:\n• Círculo FOV personalizável\n• Highlight profissional em jogadores\n• Linhas de direção em tempo real\n• Interface moderna com Rayfield"
+        Content = "Dark Aura BR 🇧🇷\nVersão: 1.0\n\n✅ SISTEMA AUTENTICADO COM SUCESSO!\nKey utilizada: 5609\n\nDesenvolvido para comunidade brasileira"
     })
     
     -- Inicializar o círculo FOV
     FOVCircle = CreateFOVCircle()
     
     -- ============================================
-    -- 7. LOOP PRINCIPAL (RENDERING)
+    -- 8. LOOP PRINCIPAL (SÓ EXECUTA SE AUTENTICADO)
     -- ============================================
     
-    -- Loop para atualizar elementos em tempo real
     RunService.RenderStepped:Connect(function()
         if IsAuthenticated then
-            -- Atualizar highlights
             if Settings.PlayerHighlight then
                 UpdateHighlights()
             elseif not Settings.PlayerHighlight and next(Highlights) then
-                -- Limpar highlights se desativado
                 for _, Highlight in pairs(Highlights) do
                     if Highlight then
                         Highlight:Destroy()
@@ -511,17 +524,14 @@ local function LoadMainInterface()
                 Highlights = {}
             end
             
-            -- Atualizar linhas de direção
             if Settings.DirectionLines then
                 UpdateDirectionLines()
             end
         end
     end)
     
-    -- Limpeza ao trocar de personagem
     LocalPlayer.CharacterAdded:Connect(function()
         if IsAuthenticated then
-            -- Recriar círculo FOV se necessário
             if Settings.ShowFOV then
                 if FOVCircle then
                     local parent = FOVCircle.Parent
@@ -532,7 +542,6 @@ local function LoadMainInterface()
                 FOVCircle = CreateFOVCircle()
             end
             
-            -- Limpar linhas antigas
             for _, Line in pairs(DirectionLinesObj) do
                 if Line then
                     Line:Destroy()
@@ -544,14 +553,16 @@ local function LoadMainInterface()
     
     -- Notificação de boas-vindas
     Rayfield:Notify({
-        Title = "Dark Aura BR 🇧🇷",
+        Title = "✅ Dark Aura BR 🇧🇷",
         Content = "Sistema carregado com sucesso! Ajuste as configurações conforme preferir.",
         Duration = 4
     })
     
-    print("[Dark Aura BR] Interface principal carregada com sucesso!")
+    print("[Dark Aura BR] ✅ SISTEMA CARREGADO COM SUCESSO!")
+    print("[Dark Aura BR] Key utilizada: 5609")
 end
 
 -- Inicialização
-print("[Dark Aura BR] Sistema de autenticação iniciado. Aguardando key...")
-print("[Dark Aura BR] Key correta: 5609")
+print("[Dark Aura BR] 🔐 Sistema de autenticação iniciado.")
+print("[Dark Aura BR] ⚠️ Aguardando key correta: 5609")
+print("[Dark Aura BR] ⚠️ Se a key estiver errada, o sistema NÃO será carregado!")
